@@ -6,3 +6,4 @@ pyotp
 requests
 smartapi-python
 streamlit-autorefresh
+logzero
