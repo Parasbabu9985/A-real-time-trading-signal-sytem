@@ -7,3 +7,4 @@ requests
 smartapi-python
 streamlit-autorefresh
 logzero
+websocket-client
