@@ -16,10 +16,10 @@ st.set_page_config(page_title="Trading Dashboard", layout="wide")
 st_autorefresh(interval=30000, key="refresh")
 
 # ===================== CREDENTIALS =====================
-API_KEY = os.getenv("API_KEY")
+API_KEY = os.getenv("lLSfnshu")
 CLIENT_ID = os.getenv("A51947827")
-CLIENT_PASSWORD = os.getenv("CLIENT_PASSWORD")
-TOTP_SECRET = os.getenv("TOTP_SECRET")
+CLIENT_PASSWORD = os.getenv("1507")
+TOTP_SECRET = os.getenv("T6LZJTSG3QR5HDBYEYCO5UTUWU")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
