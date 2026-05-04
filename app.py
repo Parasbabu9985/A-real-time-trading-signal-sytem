@@ -7,22 +7,26 @@ from SmartApi import SmartConnect
 import pyotp
 import requests
 import plotly.graph_objects as go
-import os
 
-# ===================== CONFIG =====================
+# ===================== PAGE CONFIG =====================
 st.set_page_config(page_title="Trading Dashboard", layout="wide")
 
-# Auto refresh (30 sec)
+# ===================== AUTO REFRESH =====================
 st_autorefresh(interval=30000, key="refresh")
 
-# ===================== CREDENTIALS =====================
-API_KEY = os.getenv("lLSfnshu")
-CLIENT_ID = os.getenv("A51947827")
-CLIENT_PASSWORD = os.getenv("1507")
-TOTP_SECRET = os.getenv("T6LZJTSG3QR5HDBYEYCO5UTUWU")
+# ===================== SECRETS (IMPORTANT) =====================
+try:
+    API_KEY = st.secrets["ILSfnshu"]
+    CLIENT_ID = st.secrets["A51947827"]
+    CLIENT_PASSWORD = st.secrets["1507"]
+    TOTP_SECRET = st.secrets["T6LZJTSG3QR5HDBYEYCO5UTUWU"]
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+    BOT_TOKEN = st.secrets.get("BOT_TOKEN", "")
+    CHAT_ID = st.secrets.get("CHAT_ID", "")
+
+except Exception:
+    st.error("❌ Secrets not configured properly")
+    st.stop()
 
 # ===================== TITLE =====================
 st.title("📊 Smart Trading Dashboard")
@@ -33,7 +37,7 @@ st.sidebar.header("⚙️ Settings")
 symbol = st.sidebar.selectbox("Select Index", ["NIFTY", "BANKNIFTY"])
 interval_label = st.sidebar.selectbox(
     "Interval",
-    ["1 Minute", "5 Minute", "15 Minute", "30 Minute", "1 Hour"],
+    ["1 Minute", "5 Minute", "15 Minute"],
     index=1
 )
 
@@ -41,11 +45,11 @@ INTERVAL_MAP = {
     "1 Minute": "ONE_MINUTE",
     "5 Minute": "FIVE_MINUTE",
     "15 Minute": "FIFTEEN_MINUTE",
-    "30 Minute": "THIRTY_MINUTE",
-    "1 Hour": "ONE_HOUR",
 }
 
 interval = INTERVAL_MAP[interval_label]
+
+st.sidebar.info("EMA + RSI Strategy")
 
 # ===================== DATE =====================
 default_start = (datetime.now() - timedelta(days=1)).date()
@@ -66,8 +70,14 @@ todate = to_dt.strftime("%Y-%m-%d %H:%M")
 # ===================== LOGIN =====================
 try:
     obj = SmartConnect(api_key=API_KEY)
-    totp = pyotp.TOTP(TOTP_SECRET).now()
+
+    totp = pyotp.TOTP(TOTP_SECRET.strip()).now()
+
     data = obj.generateSession(CLIENT_ID, CLIENT_PASSWORD, totp)
+
+    if not data or "data" not in data:
+        st.error(f"Login failed: {data}")
+        st.stop()
 
     st.sidebar.success("✅ Logged in")
 
@@ -75,12 +85,11 @@ except Exception as e:
     st.error(f"Login failed: {e}")
     st.stop()
 
-# ===================== SYMBOL TOKENS =====================
+# ===================== SYMBOL =====================
 SYMBOL_TOKENS = {
     "NIFTY": "99926000",
     "BANKNIFTY": "99926009",
 }
-
 symbol_token = SYMBOL_TOKENS[symbol]
 
 # ===================== FETCH DATA =====================
@@ -121,7 +130,12 @@ if df.empty:
 # ===================== INDICATORS =====================
 df["EMA20"] = df["close"].ewm(span=20).mean()
 df["EMA50"] = df["close"].ewm(span=50).mean()
-df["RSI"] = 100 - (100 / (1 + df["close"].pct_change().rolling(14).mean()))
+
+delta = df["close"].diff()
+gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+rs = gain / loss
+df["RSI"] = 100 - (100 / (1 + rs))
 
 last = df.iloc[-1]
 
@@ -138,7 +152,7 @@ if ema20 > ema50 and rsi > 50:
 elif ema20 < ema50 and rsi < 50:
     signal = "SELL"
 
-# ===================== SL / TARGET =====================
+# ===================== TRADE =====================
 entry = price
 
 if signal == "BUY":
@@ -150,24 +164,32 @@ elif signal == "SELL":
 else:
     sl, target = None, None
 
+# ===================== SIGNAL DISPLAY =====================
+if signal == "BUY":
+    st.success(f"🟢 BUY SIGNAL at {round(price,2)}")
+elif signal == "SELL":
+    st.error(f"🔴 SELL SIGNAL at {round(price,2)}")
+else:
+    st.warning("🟡 HOLD")
+
 # ===================== METRICS =====================
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("📢 Signal", signal)
-col2.metric("💰 Price", round(price,2))
-col3.metric("📉 RSI", round(rsi,2))
-col4.metric("📊 Trend", "Bullish" if ema20 > ema50 else "Bearish")
+col1.metric("Signal", signal)
+col2.metric("Price", round(price,2))
+col3.metric("RSI", round(rsi,2))
+col4.metric("Trend", "Bullish" if ema20 > ema50 else "Bearish")
 
-# ===================== TRADE =====================
+# ===================== TRADE PANEL =====================
 st.subheader("📌 Trade Setup")
 
 c1, c2, c3 = st.columns(3)
 
-c1.info(f"Entry: {round(entry,2)}")
+c1.metric("Entry", round(entry,2))
 
 if sl:
-    c2.warning(f"SL: {round(sl,2)}")
-    c3.success(f"Target: {round(target,2)}")
+    c2.metric("Stop Loss", round(sl,2))
+    c3.metric("Target", round(target,2))
 else:
     c2.write("-")
     c3.write("-")
@@ -188,14 +210,16 @@ fig.add_trace(go.Candlestick(
 fig.add_trace(go.Scatter(x=df.index, y=df["EMA20"], name="EMA20"))
 fig.add_trace(go.Scatter(x=df.index, y=df["EMA50"], name="EMA50"))
 
+fig.update_layout(template="plotly_dark")
+
 st.plotly_chart(fig, use_container_width=True)
 
 # ===================== RSI =====================
-st.subheader("RSI")
+st.subheader("📉 RSI")
 st.line_chart(df["RSI"])
 
 # ===================== VOLUME =====================
-st.subheader("Volume")
+st.subheader("📊 Volume")
 st.bar_chart(df["volume"])
 
 # ===================== TELEGRAM =====================
@@ -204,5 +228,5 @@ def send_telegram(msg):
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
         requests.get(url, params={"chat_id": CHAT_ID, "text": msg})
 
-if st.button("Send Signal"):
+if st.button("📲 Send Signal"):
     send_telegram(f"{symbol} {signal} @ {price}")
