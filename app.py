@@ -16,10 +16,11 @@ st_autorefresh(interval=30000, key="refresh")
 
 # ===================== SECRETS (IMPORTANT) =====================
 try:
-    API_KEY = st.secrets["ILSfnshu"]
-    CLIENT_ID = st.secrets["A51947827"]
-    CLIENT_PASSWORD = st.secrets["1507"]
-    TOTP_SECRET = st.secrets["T6LZJTSG3QR5HDBYEYCO5UTUWU"]
+    API_KEY = st.secrets["api_key"]
+    CLIENT_ID = st.secrets["client_id"]
+    CLIENT_PASSWORD = st.secrets["password"]
+    TOTP_SECRET = st.secrets["totp_secret"]
+
 
     BOT_TOKEN = st.secrets.get("BOT_TOKEN", "")
     CHAT_ID = st.secrets.get("CHAT_ID", "")
