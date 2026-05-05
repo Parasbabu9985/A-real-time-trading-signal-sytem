@@ -12,7 +12,7 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Trading Dashboard", layout="wide")
 
 # ===================== AUTO REFRESH =====================
-st_autorefresh(interval=30000, key="refresh")
+st_autorefresh(interval=120000, key="refresh")
 
 # ===================== SECRETS (IMPORTANT) =====================
 try:
