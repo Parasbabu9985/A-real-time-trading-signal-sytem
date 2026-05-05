@@ -105,28 +105,54 @@ def fetch_candles():
 
     resp = obj.getCandleData(payload)
 
-    if not resp or "data" not in resp:
+    # 🔍 DEBUG (very important)
+    st.write("API Response:", resp)
+
+    # ❌ No response
+    if not resp:
+        st.error("❌ No response from API")
         return pd.DataFrame()
 
-    df = pd.DataFrame(
-        resp["data"],
-        columns=["datetime", "open", "high", "low", "close", "volume"]
-    )
+    # ❌ data key missing
+    if "data" not in resp:
+        st.error(f"❌ 'data' key missing: {resp}")
+        return pd.DataFrame()
+
+    data = resp["data"]
+
+    # ❌ data is None
+    if data is None:
+        st.error("❌ Data is None (login/session issue)")
+        return pd.DataFrame()
+
+    # ❌ data is not list
+    if not isinstance(data, list):
+        st.error(f"❌ Data not list: {data}")
+        return pd.DataFrame()
+
+    # ❌ empty data
+    if len(data) == 0:
+        st.warning("⚠️ No candle data (market closed or invalid time)")
+        return pd.DataFrame()
+
+    # ✅ Safe DataFrame
+    try:
+        df = pd.DataFrame(
+            data,
+            columns=["datetime", "open", "high", "low", "close", "volume"]
+        )
+    except Exception as e:
+        st.error(f"❌ DataFrame error: {e}")
+        return pd.DataFrame()
 
     df["datetime"] = pd.to_datetime(df["datetime"])
     df.set_index("datetime", inplace=True)
 
-    for c in ["open","high","low","close","volume"]:
+    for c in ["open", "high", "low", "close", "volume"]:
         df[c] = pd.to_numeric(df[c], errors="coerce")
 
     df.dropna(inplace=True)
     return df
-
-df = fetch_candles()
-
-if df.empty:
-    st.warning("No data found")
-    st.stop()
 
 # ===================== INDICATORS =====================
 df["EMA20"] = df["close"].ewm(span=20).mean()
