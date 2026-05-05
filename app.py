@@ -69,22 +69,25 @@ fromdate = from_dt.strftime("%Y-%m-%d %H:%M")
 todate = to_dt.strftime("%Y-%m-%d %H:%M")
 
 # ===================== LOGIN =====================
-try:
-    obj = SmartConnect(api_key=API_KEY)
+if "obj" not in st.session_state:
+    try:
+        obj = SmartConnect(api_key=API_KEY)
 
-    totp = pyotp.TOTP(TOTP_SECRET.strip()).now()
+        totp = pyotp.TOTP(TOTP_SECRET).now()
+        data = obj.generateSession(CLIENT_ID, CLIENT_PASSWORD, totp)
 
-    data = obj.generateSession(CLIENT_ID, CLIENT_PASSWORD, totp)
+        if not data or "data" not in data:
+            st.error(f"Login failed: {data}")
+            st.stop()
 
-    if not data or "data" not in data:
-        st.error(f"Login failed: {data}")
+        st.session_state["obj"] = obj
+        st.success("✅ Login successful")
+
+    except Exception as e:
+        st.error(f"Login failed: {e}")
         st.stop()
 
-    st.sidebar.success("✅ Logged in")
-
-except Exception as e:
-    st.error(f"Login failed: {e}")
-    st.stop()
+obj = st.session_state["obj"]
 
 # ===================== SYMBOL =====================
 SYMBOL_TOKENS = {
