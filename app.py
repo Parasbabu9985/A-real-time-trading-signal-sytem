@@ -156,6 +156,23 @@ def fetch_candles():
 
     df.dropna(inplace=True)
     return df
+    # ===== BUTTON (sirf click par API call) =====
+if st.button("🔄 Get Data"):
+    with st.spinner("Fetching data..."):
+        data = fetch_candles()
+        st.session_state["df"] = data
+
+# ===== SESSION se df lo =====
+df = st.session_state.get("df", None)
+
+# ===== SAFE CHECK =====
+if df is None or df.empty:
+    st.warning("👆 Click 'Get Data' button")
+    st.stop()
+
+# ===== AB df use karo (safe) =====
+df["EMA20"] = df["close"].ewm(span=20).mean()
+df["EMA50"] = df["close"].ewm(span=50).mean()
 
 # ===================== INDICATORS =====================
 df["EMA20"] = df["close"].ewm(span=20).mean()
